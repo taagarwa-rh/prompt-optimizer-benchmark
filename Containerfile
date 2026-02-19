@@ -16,4 +16,4 @@ WORKDIR /opt/app-root/src
 COPY --chown=1001:0 . .
 RUN uv sync --no-dev
 
-CMD [ "/bin/bash", "./app.sh" ]
+CMD [ "/bin/bash", "-c" ]

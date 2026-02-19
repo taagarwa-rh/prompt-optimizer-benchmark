@@ -61,9 +61,10 @@ objects:
           containers:
             - name: prompt-optimization-benchmark
               image: image-registry.openshift-image-registry.svc:5000/${NAMESPACE}/prompt-optimization-benchmark:latest
+              args: ["uv", "run", "benchmark.py", "--config", "config/config.yaml"]
               volumeMounts:
                 - name: config
-                  mountPath: config.yaml
+                  mountPath: /opt/app-root/src/config
                   readOnly: True
               env:
                 - name: MLFLOW_TRACKING_URI
