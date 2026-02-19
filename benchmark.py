@@ -208,7 +208,7 @@ def main():
                 }
                 params = {
                     **params, 
-                    **{f"optimizer_kwargs_{key}": value for key, value in optimizer_kwargs.items()} 
+                    **{f"optimizer_kwargs_{key}": value for key, value in optimizer_kwargs.items()},
                     **{f"evaluator_{key}": value for key, value in evaluator_cfg.model_dump().items()},
                     **{f"optimizer_{key}": value for key, value in optimizer_cfg.model_dump().items()},
                 }
