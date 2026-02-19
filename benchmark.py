@@ -86,7 +86,7 @@ def parse_args() -> BenchmarkConfig:
 
 def get_client(config: ClientConfig):
     """Get the LLM client for the AI system."""
-    client = ChatOpenAI(model=config.model, **config.kwargs)
+    client = ChatOpenAI(model=config.model, api_key=config.api_key, **config.kwargs)
     return client
 
 
