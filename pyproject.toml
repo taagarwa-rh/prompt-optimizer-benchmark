@@ -1,0 +1,17 @@
+[project]
+name = "prompt-optimization-benchmark"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets==3.6.0",
+    "langchain-openai>=1.1.10",
+    "mlflow>=3.9.0",
+    "prompt-optimizer",
+    "pydantic-yaml>=1.6.0",
+    "python-dotenv>=1.2.1",
+]
+
+[tool.uv.sources]
+prompt-optimizer = { git = "https://github.com/taagarwa-rh/prompt-optimizer.git" }

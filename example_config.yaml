@@ -1,0 +1,63 @@
+meta:
+  name: "prompt-optimization-v1"
+  experiment_name: "prompt-optimization"
+clients:
+  evaluator:
+    model: "qwen3:0.6b"
+    api_key: "NONE"
+    kwargs:
+      base_url: http://localhost:11434/v1
+      temperature: 0.0
+      max_tokens: 5
+  optimizer:
+    model: "gpt-oss:20b"
+    api_key: "NONE"
+    kwargs: 
+      base_url: http://localhost:11434/v1
+      max_tokens: 2000
+dataset:
+  path: "lighteval/big_bench_hard"
+  name: "hyperbaton"
+  max_size: 100
+  train_pct: 0.8
+optimizers:
+  - name: "APE"
+    optimizer: "APEOptimizer"
+    kwargs:
+      max_depth: 3
+      input_field: "input"
+      output_field: "target"
+      num_initial_prompts: 10
+      num_exemplars: 5
+      k_percent: 0.5
+  - name: "OPRO"
+    optimizer: "OPROOptimizer"
+    kwargs:
+      max_depth: 3
+      seed_prompts:
+        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
+      input_field: "input"
+      output_field: "target"
+      num_candidates_per_step: 20
+      num_exemplars: 3
+      max_demonstration_prompts: 20
+  - name: "PromptAgent"
+    optimizer: "PromptAgentOptimizer"
+    kwargs: 
+      max_depth: 3
+      seed_prompts:
+        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
+      batch_size: 5
+      expand_width: 3
+      num_samples: 2
+      search_mode: "beam"
+  - name: "Protegi"
+    optimizer: "ProtegiOptimizer"
+    kwargs:
+      max_depth: 3
+      seed_prompts:
+        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
+      num_feedbacks: 3
+      steps_per_gradient: 3
+      num_resample: 3
+      search_mode: "beam"
