@@ -145,7 +145,8 @@ class Evaluator:
                 num_correct += 1
             else:
                 num_correct += 0
-                error = PredictionError(input=input, actual=actual, prediction=prediction)
+                feedback = f"Input: {input}\nExpected: {actual}\nPredicted:{prediction}"
+                error = PredictionError(input=input, actual=actual, prediction=prediction, feedback=feedback)
                 prompt.errors.append(error)
 
         # Compute the score
