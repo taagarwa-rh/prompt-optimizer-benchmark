@@ -192,6 +192,7 @@ def main():
     # Run optimizations
     optimizer_cfgs = config.optimizers
     mlflow.set_experiment(config.meta.experiment_name)
+    mlflow.openai.autolog()
     logger.info(f"MLflow Experiment Set: {config.meta.experiment_name}")
     with mlflow.start_run(run_name=config.meta.name):
         for cfg in optimizer_cfgs:
