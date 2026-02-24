@@ -223,10 +223,11 @@ def main():
                 # Log the results
                 all_prompts = optimizer.get_all_prompts(include_candidates=True)
                 test_score = evaluator(prompt=best_prompt, validation_set=test_ds)
+                num_prompts_generated = len(set(sum(all_prompts, start=[])))
                 metrics = {
                     "best_prompt_train_score": best_prompt.score,
                     "best_prompt_test_score": test_score,
-                    "prompts_generated": len(sum(all_prompts, start=[])),
+                    "prompts_generated": num_prompts_generated,
                     "time_sec": end - start,
                 }
                 if len(optimizer.seed_prompts) > 0:
