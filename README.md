@@ -64,7 +64,7 @@ Leverages the [prompt-optimizer package](https://github.com/taagarwa-rh/prompt-o
 3. Run the benchmark:
 
     ```sh
-    oc process -f benchmark.yaml \
+    oc process -f deploy.yaml \
         -p NAMESPACE="$NAMESPACE" \
         -p MLFLOW_TRACKING_URI="$MLFLOW_TRACKING_URI" \
         | oc apply -f -
