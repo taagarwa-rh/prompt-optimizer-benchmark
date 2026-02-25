@@ -20,6 +20,8 @@ dataset:
   name: "hyperbaton"
   max_size: 100
   train_pct: 0.8
+seed_prompts:
+  - Answer the question with '(A)' or '(B)' only, and no other thoughts.
 optimizers:
   - name: "APE"
     optimizer: "APEOptimizer"
@@ -34,8 +36,6 @@ optimizers:
     optimizer: "OPROOptimizer"
     kwargs:
       max_depth: 3
-      seed_prompts:
-        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
       input_field: "input"
       output_field: "target"
       num_candidates_per_step: 20
@@ -45,8 +45,6 @@ optimizers:
     optimizer: "PromptAgentOptimizer"
     kwargs: 
       max_depth: 3
-      seed_prompts:
-        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
       batch_size: 5
       expand_width: 3
       num_samples: 2
@@ -55,8 +53,6 @@ optimizers:
     optimizer: "ProtegiOptimizer"
     kwargs:
       max_depth: 3
-      seed_prompts:
-        - Answer the question with '(A)' or '(B)' only, and no other thoughts.
       num_feedbacks: 3
       steps_per_gradient: 3
       num_resample: 3

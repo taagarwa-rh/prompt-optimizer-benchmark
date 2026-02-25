@@ -1,7 +1,8 @@
 import argparse
 import time
-from typing import Any, Literal, Callable, Optional
+from typing import Any, Literal, Callable, Optional, Union
 import logging
+import inspect
 
 import mlflow
 from dotenv import load_dotenv
@@ -61,16 +62,17 @@ class OptimizerConfig(BaseModel):
             "ProtegiOptimizer": ProtegiOptimizer,
         }
         self.optimizer_cls = cls_map[self.optimizer]
-        
-        if "seed_prompts" in self.kwargs and isinstance(self.kwargs.get("seed_prompts", None), list):
-            self.kwargs["seed_prompts"] = [Prompt(content=content) for content in self.kwargs.get("seed_prompts", [])]
     
 
 class BenchmarkConfig(BaseModel):
     meta: RunMetadata
     clients: ClientsConfig
     dataset: DatasetConfig
+    seed_prompts: list[Union[str, Prompt]] = []
     optimizers: list[OptimizerConfig]
+
+    def model_post_init(self, context):
+        self.seed_prompts = [Prompt(content=content) for content in self.seed_prompts]
 
 
 def parse_args() -> BenchmarkConfig:
@@ -203,6 +205,8 @@ def main():
         for cfg in optimizer_cfgs:
             # Create optimizer
             optimizer_kwargs: dict[str, Any] = cfg.kwargs
+            if "seed_prompts" in inspect.signature(cfg.optimizer_cls).parameters:
+                optimizer_kwargs["seed_prompts"] = config.seed_prompts
             optimizer: BaseOptimizer = cfg.optimizer_cls(client=optimizer_client, evaluator=evaluator, validation_set=train_ds, **optimizer_kwargs)
             
             logger.info(f"Starting Run: {cfg.name}")
