@@ -10,6 +10,7 @@ from pydantic_yaml import parse_yaml_file_as
 from pathlib import Path
 from pydantic import BaseModel, SecretStr
 from datasets import load_dataset
+import pandas as pd
 
 from prompt_optimizer import PredictionError, Prompt
 from prompt_optimizer.optimizers import APEOptimizer, BaseOptimizer, OPROOptimizer, PromptAgentOptimizer, ProtegiOptimizer
@@ -188,11 +189,16 @@ def main():
     # Get optimizer client
     optimizer_client = get_client(optimizer_cfg)
     
-    # Run optimizations
-    optimizer_cfgs = config.optimizers
+    # Initialize storage for benchmark results
+    benchmark_results = {}
+    
+    # Configure MLflow Experiment
     mlflow.set_experiment(config.meta.experiment_name)
     mlflow.openai.autolog()
     logger.info(f"MLflow Experiment Set: {config.meta.experiment_name}")
+
+    # Run optimizations
+    optimizer_cfgs = config.optimizers
     with mlflow.start_run(run_name=config.meta.name):
         for cfg in optimizer_cfgs:
             # Create optimizer
@@ -237,6 +243,7 @@ def main():
                     metrics = {**metrics, "baseline_train_score": baseline_train_score, "baseline_test_score": baseline_test_score}
                 
                 mlflow.log_metrics(metrics=metrics)
+                benchmark_results[cfg.name] = metrics
 
                 log_dict = {
                     "best_prompt": best_prompt.model_dump(),
@@ -255,6 +262,10 @@ def main():
                 }
                 mlflow.log_table(table, artifact_file="table.json")
                 logger.info(f"Run Complete: {cfg.name}")
+
+        # Log the benchmark results      
+        benchmark_results = pd.DataFrame([{"optimizer": k, **v} for k, v in benchmark_results.items()])
+        mlflow.log_table(benchmark_results, artifact_file="benchmark_results.json")
 
 
 if __name__ == "__main__":
