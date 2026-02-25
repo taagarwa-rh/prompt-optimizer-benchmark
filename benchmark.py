@@ -1,60 +1,68 @@
 import argparse
-import time
-from typing import Any, Literal, Callable, Optional, Union
-import logging
 import inspect
+import logging
+import time
+from pathlib import Path
+from typing import Any, Callable, Literal, Optional, Union
 
 import mlflow
+import pandas as pd
+from datasets import load_dataset
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from pydantic_yaml import parse_yaml_file_as
-from pathlib import Path
-from pydantic import BaseModel, SecretStr
-from datasets import load_dataset
-import pandas as pd
-
 from prompt_optimizer import PredictionError, Prompt
 from prompt_optimizer.optimizers import APEOptimizer, BaseOptimizer, OPROOptimizer, PromptAgentOptimizer, ProtegiOptimizer
+from pydantic import BaseModel, SecretStr
+from pydantic_yaml import parse_yaml_file_as
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
 class RunMetadata(BaseModel):
-    
+    """Run metadata model."""
+
     name: str = "prompt-optimization"
     experiment_name: str = "Default"
 
+
 class ClientConfig(BaseModel):
-    
+    """Client configuration model."""
+
     model: str
     api_key: SecretStr
     kwargs: dict = {}
 
+
 class ClientsConfig(BaseModel):
-    
+    """Clients configuration model."""
+
     evaluator: ClientConfig
     optimizer: ClientConfig
-    
-    
+
+
 class DatasetConfig(BaseModel):
-    
+    """Dataset configuration model."""
+
     path: str
     name: str
     split: Optional[str] = None
     max_size: int = -1
     test_split: Optional[str] = None
     train_pct: float = 0.8
-    
-    
+
+
 class OptimizerConfig(BaseModel):
-    
+    """Optimizer configuration model."""
+
     name: str
     optimizer: Literal["APEOptimizer", "OPROOptimizer", "PromptAgentOptimizer", "ProtegiOptimizer"]
     kwargs: dict = {}
     optimizer_cls: Callable[[Any], BaseOptimizer] = None
-    
+
     def model_post_init(self, context):
+        """Post init."""
         cls_map = {
             "APEOptimizer": APEOptimizer,
             "OPROOptimizer": OPROOptimizer,
@@ -62,9 +70,11 @@ class OptimizerConfig(BaseModel):
             "ProtegiOptimizer": ProtegiOptimizer,
         }
         self.optimizer_cls = cls_map[self.optimizer]
-    
+
 
 class BenchmarkConfig(BaseModel):
+    """Benchmark configuration model."""
+
     meta: RunMetadata
     clients: ClientsConfig
     dataset: DatasetConfig
@@ -72,6 +82,7 @@ class BenchmarkConfig(BaseModel):
     optimizers: list[OptimizerConfig]
 
     def model_post_init(self, context):
+        """Post init."""
         self.seed_prompts = [Prompt(content=content) for content in self.seed_prompts]
 
 
@@ -80,10 +91,10 @@ def parse_args() -> BenchmarkConfig:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", "-c", type=Path, required=True, help="Path to configuration file")
     args = parser.parse_args()
-    
+
     # Parse config into pydantic model
     config = parse_yaml_file_as(BenchmarkConfig, args.config)
-    
+
     return config
 
 
@@ -93,13 +104,15 @@ def get_client(config: ClientConfig):
     return client
 
 
-def get_dataset(path: str, name: str = None, max_size: int = -1, split: str = None, test_split: str = None, train_pct: float = 0.8) -> tuple[list[dict], list[dict]]:
+def get_dataset(
+    path: str, name: str = None, max_size: int = -1, split: str = None, test_split: str = None, train_pct: float = 0.8
+) -> tuple[list[dict], list[dict]]:
     """Get validation and test data."""
     train_ds = load_dataset(path, name, split=split, trust_remote_code=True)
     if split is None:
         splits = list(train_ds.keys())
         train_ds = train_ds[splits[0]]
-    
+
     # Split the dataset into training and testing sets
     if test_split:
         test_ds = load_dataset(path, name, split=test_split)
@@ -114,17 +127,18 @@ def get_dataset(path: str, name: str = None, max_size: int = -1, split: str = No
         train_ds, test_ds = split_ds["train"], split_ds["test"]
     else:
         raise ValueError("One of test_split or train_pct must be specified.")
-    
+
     # Reduce the sizes to the specified size
     if max_size > 0:
         train_ds = train_ds.select(range(0, min(max_size, len(train_ds))))
         test_ds = test_ds.select(range(0, min(max_size, len(test_ds))))
-        
+
     return train_ds.to_pandas().to_dict(orient="records"), test_ds.to_pandas().to_dict(orient="records")
-    
 
 
 class Evaluator:
+    """Exact match evaluator."""
+
     def __init__(self, config: ClientConfig):
         """Initialize."""
         self.client = get_client(config)
@@ -160,6 +174,7 @@ class Evaluator:
         return score
 
     def __call__(self, prompt: Prompt, validation_set: list[dict]):
+        """Call the evaluator."""
         return self._evaluate(prompt=prompt, validation_set=validation_set)
 
 
@@ -174,7 +189,7 @@ def main():
         path=dataset_cfg.path,
         name=dataset_cfg.name,
         split=dataset_cfg.split,
-        max_size=dataset_cfg.max_size, 
+        max_size=dataset_cfg.max_size,
         train_pct=dataset_cfg.train_pct,
     )
     logger.info(f"Train size: {len(train_ds)}, Test size: {len(test_ds)}")
@@ -184,13 +199,13 @@ def main():
     optimizer_cfg = config.clients.optimizer
     logger.info(f"Evaluator Config: {evaluator_cfg.model_dump()}")
     logger.info(f"Optimizer Config: {optimizer_cfg.model_dump()}")
-    
+
     # Get evaluator
     evaluator = Evaluator(evaluator_cfg)
-    
+
     # Get optimizer client
     optimizer_client = get_client(optimizer_cfg)
-    
+
     # Configure MLflow Experiment
     mlflow.set_experiment(config.meta.experiment_name)
     mlflow.openai.autolog()
@@ -207,7 +222,7 @@ def main():
             if seed_prompt_train_score > baseline_train_score:
                 baseline_train_score = seed_prompt_train_score
                 baseline_test_score = seed_prompt_test_score
-    
+
     # Initialize storage for benchmark results
     benchmark_results = {"baseline": {"train_score": baseline_train_score, "test_score": baseline_test_score}}
 
@@ -219,8 +234,10 @@ def main():
             optimizer_kwargs: dict[str, Any] = cfg.kwargs
             if "seed_prompts" in inspect.signature(cfg.optimizer_cls).parameters:
                 optimizer_kwargs["seed_prompts"] = config.seed_prompts
-            optimizer: BaseOptimizer = cfg.optimizer_cls(client=optimizer_client, evaluator=evaluator, validation_set=train_ds, **optimizer_kwargs)
-            
+            optimizer: BaseOptimizer = cfg.optimizer_cls(
+                client=optimizer_client, evaluator=evaluator, validation_set=train_ds, **optimizer_kwargs
+            )
+
             logger.info(f"Starting Run: {cfg.name}")
             with mlflow.start_run(nested=True, run_name=cfg.name):
                 # Log input params
@@ -230,7 +247,7 @@ def main():
                     "dataset_name": dataset_cfg.name,
                 }
                 params = {
-                    **params, 
+                    **params,
                     **{f"optimizer_kwargs_{key}": value for key, value in optimizer_kwargs.items()},
                     **{f"evaluator_{key}": value for key, value in evaluator_cfg.model_dump().items()},
                     **{f"optimizer_{key}": value for key, value in optimizer_cfg.model_dump().items()},
@@ -252,13 +269,15 @@ def main():
                     "prompts_generated": num_prompts_generated,
                     "time_sec": end - start,
                 }
-                
+
                 mlflow.log_metrics(metrics=metrics)
                 benchmark_results[cfg.name] = metrics
-                mlflow.log_metrics(metrics={
-                    "baseline_train_score": baseline_train_score, 
-                    "baseline_test_score": baseline_test_score,
-                })
+                mlflow.log_metrics(
+                    metrics={
+                        "baseline_train_score": baseline_train_score,
+                        "baseline_test_score": baseline_test_score,
+                    }
+                )
 
                 log_dict = {
                     "best_prompt": best_prompt.model_dump(),
@@ -270,7 +289,7 @@ def main():
                 avg_score_each_step = [sum(p.score for p in step) / len(step) if len(step) != 0 else 0.0 for step in all_prompts]
                 min_score_each_step = [min(step, key=lambda x: x.score).score if len(step) != 0 else 0.0 for step in all_prompts]
                 table = {
-                    "step": [i for i in range(len(max_score_each_step))],
+                    "step": list(range(len(max_score_each_step))),
                     "max_score": max_score_each_step,
                     "avg_score": avg_score_each_step,
                     "min_score": min_score_each_step,
@@ -278,7 +297,7 @@ def main():
                 mlflow.log_table(table, artifact_file="table.json")
                 logger.info(f"Run Complete: {cfg.name}")
 
-        # Log the benchmark results      
+        # Log the benchmark results
         benchmark_results = pd.DataFrame([{"optimizer": k, **v} for k, v in benchmark_results.items()])
         mlflow.log_table(benchmark_results, artifact_file="benchmark_results.json")
 
