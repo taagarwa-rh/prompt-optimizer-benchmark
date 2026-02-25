@@ -191,13 +191,25 @@ def main():
     # Get optimizer client
     optimizer_client = get_client(optimizer_cfg)
     
-    # Initialize storage for benchmark results
-    benchmark_results = {}
-    
     # Configure MLflow Experiment
     mlflow.set_experiment(config.meta.experiment_name)
     mlflow.openai.autolog()
     logger.info(f"MLflow Experiment Set: {config.meta.experiment_name}")
+
+    # Score seed prompts
+    baseline_train_score = 0.0
+    baseline_test_score = 0.0
+    if len(config.seed_prompts) > 0:
+        for seed_prompt in config.seed_prompts:
+            seed_prompt_train_score = evaluator(prompt=seed_prompt, validation_set=train_ds)
+            seed_prompt_test_score = evaluator(prompt=seed_prompt, validation_set=test_ds)
+            seed_prompt.score = seed_prompt_train_score
+            if seed_prompt_train_score > baseline_train_score:
+                baseline_train_score = seed_prompt_train_score
+                baseline_test_score = seed_prompt_test_score
+    
+    # Initialize storage for benchmark results
+    benchmark_results = {"baseline": {"train_score": baseline_train_score, "test_score": baseline_test_score}}
 
     # Run optimizations
     optimizer_cfgs = config.optimizers
@@ -235,19 +247,18 @@ def main():
                 test_score = evaluator(prompt=best_prompt, validation_set=test_ds)
                 num_prompts_generated = len(set(sum(all_prompts, start=[])))
                 metrics = {
-                    "best_prompt_train_score": best_prompt.score,
-                    "best_prompt_test_score": test_score,
+                    "train_score": best_prompt.score,
+                    "test_score": test_score,
                     "prompts_generated": num_prompts_generated,
                     "time_sec": end - start,
                 }
-                if len(optimizer.seed_prompts) > 0:
-                    best_seed_prompt = max(optimizer.seed_prompts, key=lambda x: x.score)
-                    baseline_train_score = best_seed_prompt.score
-                    baseline_test_score = evaluator(prompt=best_seed_prompt, validation_set=test_ds)
-                    metrics = {**metrics, "baseline_train_score": baseline_train_score, "baseline_test_score": baseline_test_score}
                 
                 mlflow.log_metrics(metrics=metrics)
                 benchmark_results[cfg.name] = metrics
+                mlflow.log_metrics(metrics={
+                    "baseline_train_score": baseline_train_score, 
+                    "baseline_test_score": baseline_test_score,
+                })
 
                 log_dict = {
                     "best_prompt": best_prompt.model_dump(),
