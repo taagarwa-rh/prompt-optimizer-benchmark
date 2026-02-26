@@ -168,9 +168,6 @@ class Evaluator:
         # Compute the score
         score = num_correct / len(validation_set)
 
-        # Save the predictions and score
-        prompt.metadata["predictions"] = predictions
-
         return score
 
     def __call__(self, prompt: Prompt, validation_set: list[dict]):
