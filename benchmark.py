@@ -146,7 +146,7 @@ class Evaluator:
     def _evaluate(self, prompt: Prompt, validation_set: list[dict]) -> list[str]:
         """Prompt evaluator function."""
         # Disable autologging
-        mlflow.langchain.autolog(disable=True)
+        mlflow.openai.autolog(disable=True)
         
         # Run the prompt through the AI system
         predictions = []
@@ -172,7 +172,7 @@ class Evaluator:
         score = num_correct / len(validation_set)
         
         # Reenable autologging
-        mlflow.langchain.autolog()
+        mlflow.openai.autolog()
 
         return score
 
