@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 logging.getLogger("LiteLLM").setLevel(logging.ERROR)
 litellm.suppress_debug_info = True
 
+# Suppress httpx logging
+logging.getLogger("httpx").setLevel(logging.ERROR)
 
 class RunMetadata(BaseModel):
     """Run metadata model."""
