@@ -11,10 +11,12 @@ dependencies = [
     "prompt-optimizer",
     "pydantic-yaml>=1.6.0",
     "python-dotenv>=1.2.1",
+    "tau-bench",
 ]
 
 [tool.uv.sources]
 prompt-optimizer = { git = "https://github.com/taagarwa-rh/prompt-optimizer.git" }
+tau-bench = { git = "https://github.com/sierra-research/tau-bench.git" }
 
 [tool.ruff]
 line-length = 140

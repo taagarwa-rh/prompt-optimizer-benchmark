@@ -66,6 +66,9 @@ objects:
                 - name: config
                   mountPath: /opt/app-root/src/config
                   readOnly: True
+                - name: results 
+                  mountPath: /opt/app-root/src/results
+                  readOnly: false
               env:
                 - name: MLFLOW_TRACKING_URI
                   value: "${MLFLOW_TRACKING_URI}"
@@ -80,4 +83,6 @@ objects:
             - name: config
               configMap:
                 name: prompt-optimization-benchmark-config
+            - name: results
+              emptyDir: {}
 
