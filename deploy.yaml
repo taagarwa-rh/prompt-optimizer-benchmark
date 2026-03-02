@@ -78,7 +78,7 @@ objects:
                   memory: 256Mi
                 limits:
                   cpu: 500m
-                  memory: 512Mi
+                  memory: 2Gi
           volumes:
             - name: config
               configMap:
