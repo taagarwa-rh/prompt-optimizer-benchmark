@@ -1,3 +1,6 @@
+import os
+import sys
+
 import tau_bench.envs
 import tau_bench.run
 from prompt_optimizer import PredictionError, Prompt
@@ -40,11 +43,11 @@ class TauBenchRetailEvaluator:
         self.baseline_prompt = WIKI
         self.train_set = [
             {"input": f"User Profile: {t.instruction}", "target": f"Expected Actions: {[a.model_dump_json() for a in t.actions]}"}
-            for t in TASKS_TRAIN
+            for t in TASKS_TRAIN[:end_index]
         ]
         self.test_set = [
             {"input": f"User Profile: {t.instruction}", "target": f"Expected Actions: {[a.model_dump_json() for a in t.actions]}"}
-            for t in TASKS_TEST
+            for t in TASKS_TEST[:end_index]
         ]
 
     def evaluate(self, prompt: Prompt, validation_set: list[dict]) -> float:
@@ -64,9 +67,12 @@ class TauBenchRetailEvaluator:
         elif validation_set == self.test_set:
             run_config = self.test_config
         else:
-            raise ValueError("Invalid split. Must be 'train' or 'test'.")
+            raise ValueError("Invalid validation_set. validation_set must match either train_set or test_set.")
 
+        old_stdout = sys.stdout
+        sys.stdout = open(os.devnull, "w")
         results = run(run_config)
+        sys.stdout = old_stdout
         for r in results:
             if r.reward < 1.0:
                 input = f"User Profile: {r.info['task']['instruction']}"
