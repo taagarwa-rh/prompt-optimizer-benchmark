@@ -1,5 +1,3 @@
-import os
-
 import tau_bench.envs
 import tau_bench.run
 from prompt_optimizer import PredictionError, Prompt
