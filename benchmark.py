@@ -10,7 +10,6 @@ import litellm
 import mlflow
 import pandas as pd
 from datasets import load_dataset
-from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from prompt_optimizer import PredictionError, Prompt
 from prompt_optimizer.optimizers import APEOptimizer, BaseOptimizer, OPROOptimizer, PromptAgentOptimizer, ProtegiOptimizer
@@ -18,8 +17,6 @@ from pydantic import BaseModel, SecretStr
 from pydantic_yaml import parse_yaml_file_as
 
 from tau_bench_evaluator import TauBenchRetailEvaluator
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +206,7 @@ def run_benchmark(config: BenchmarkConfig):
         os.makedirs(path, exist_ok=True)
 
         # Get Tau Bench
+        os.environ["OPENAI_API_KEY"] = evaluator_cfg.api_key.get_secret_value()
         if base_url := evaluator_cfg.kwargs.get("base_url", None):
             os.environ["OPENAI_BASE_URL"] = base_url
         evaluator = TauBenchRetailEvaluator(
