@@ -30,6 +30,7 @@ litellm.suppress_debug_info = True
 # Suppress httpx logging
 logging.getLogger("httpx").setLevel(logging.ERROR)
 
+
 class RunMetadata(BaseModel):
     """Run metadata model."""
 
@@ -191,11 +192,8 @@ class Evaluator:
         return self._evaluate(prompt=prompt, validation_set=validation_set)
 
 
-def main():
-    """Run main process."""
-    # Load Configuration
-    config = parse_args()
-
+def run_benchmark(config: BenchmarkConfig):
+    """Run the benchmark."""
     # Configure LLM Clients
     evaluator_cfg = config.clients.evaluator
     optimizer_cfg = config.clients.optimizer
@@ -331,6 +329,15 @@ def main():
         # Log the benchmark results
         benchmark_results = pd.DataFrame([{"optimizer": k, **v} for k, v in benchmark_results.items()])
         mlflow.log_table(benchmark_results, artifact_file="benchmark_results.json")
+
+
+def main():
+    """Run main process."""
+    # Load Configuration
+    config = parse_args()
+
+    # Run benchmark
+    run_benchmark(config=config)
 
 
 if __name__ == "__main__":
