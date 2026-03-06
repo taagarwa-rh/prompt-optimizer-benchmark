@@ -1,10 +1,12 @@
 import argparse
 import inspect
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional, Union
 
+import litellm
 import mlflow
 import pandas as pd
 from datasets import load_dataset
@@ -15,9 +17,18 @@ from prompt_optimizer.optimizers import APEOptimizer, BaseOptimizer, OPROOptimiz
 from pydantic import BaseModel, SecretStr
 from pydantic_yaml import parse_yaml_file_as
 
+from tau_bench_evaluator import TauBenchRetailEvaluator
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Suppress LiteLLM logging
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+litellm.suppress_debug_info = True
+
+# Suppress httpx logging
+logging.getLogger("httpx").setLevel(logging.ERROR)
 
 
 class RunMetadata(BaseModel):
@@ -46,7 +57,7 @@ class DatasetConfig(BaseModel):
     """Dataset configuration model."""
 
     path: str
-    name: str
+    name: Optional[str] = None
     split: Optional[str] = None
     max_size: int = -1
     test_split: Optional[str] = None
@@ -147,7 +158,7 @@ class Evaluator:
         """Prompt evaluator function."""
         # Disable autologging
         mlflow.openai.autolog(disable=True)
-        
+
         # Run the prompt through the AI system
         predictions = []
         num_correct = 0
@@ -170,7 +181,7 @@ class Evaluator:
 
         # Compute the score
         score = num_correct / len(validation_set)
-        
+
         # Reenable autologging
         mlflow.openai.autolog()
 
@@ -181,30 +192,45 @@ class Evaluator:
         return self._evaluate(prompt=prompt, validation_set=validation_set)
 
 
-def main():
-    """Run main process."""
-    # Load Configuration
-    config = parse_args()
-
-    # Fetch dataset
-    dataset_cfg = config.dataset
-    train_ds, test_ds = get_dataset(
-        path=dataset_cfg.path,
-        name=dataset_cfg.name,
-        split=dataset_cfg.split,
-        max_size=dataset_cfg.max_size,
-        train_pct=dataset_cfg.train_pct,
-    )
-    logger.info(f"Train size: {len(train_ds)}, Test size: {len(test_ds)}")
-
+def run_benchmark(config: BenchmarkConfig):
+    """Run the benchmark."""
     # Configure LLM Clients
     evaluator_cfg = config.clients.evaluator
     optimizer_cfg = config.clients.optimizer
     logger.info(f"Evaluator Config: {evaluator_cfg.model_dump()}")
     logger.info(f"Optimizer Config: {optimizer_cfg.model_dump()}")
 
-    # Get evaluator
-    evaluator = Evaluator(evaluator_cfg)
+    # Fetch dataset, evaluator, and seed prompts
+    dataset_cfg = config.dataset
+    is_tau_bench = dataset_cfg.path == "tau_bench_retail"
+    if is_tau_bench:
+        # Create results path
+        path = f"results/tool-calling-{evaluator_cfg.model.split('/')[1]}-{evaluator_cfg.kwargs.get('temperature', 0.0):.1f}_range_0-{dataset_cfg.max_size}_user-openai/{evaluator_cfg.model.split('/')[0]}"
+        os.makedirs(path, exist_ok=True)
+
+        # Get Tau Bench
+        if base_url := evaluator_cfg.kwargs.get("base_url", None):
+            os.environ["OPENAI_BASE_URL"] = base_url
+        evaluator = TauBenchRetailEvaluator(
+            model=f"openai/{evaluator_cfg.model}",
+            temperature=evaluator_cfg.kwargs.get("temperature", 0.0),
+            end_index=dataset_cfg.max_size,
+        )
+        train_ds, test_ds = evaluator.train_set, evaluator.test_set
+        seed_prompts = [Prompt(content=evaluator.baseline_prompt)]
+    else:
+        # Get standard evaluator
+        evaluator = Evaluator(evaluator_cfg)
+        train_ds, test_ds = get_dataset(
+            path=dataset_cfg.path,
+            name=dataset_cfg.name,
+            split=dataset_cfg.split,
+            max_size=dataset_cfg.max_size,
+            train_pct=dataset_cfg.train_pct,
+        )
+        seed_prompts = config.seed_prompts
+
+    logger.info(f"Train size: {len(train_ds)}, Test size: {len(test_ds)}")
 
     # Get optimizer client
     optimizer_client = get_client(optimizer_cfg)
@@ -217,7 +243,7 @@ def main():
     # Score seed prompts
     baseline_train_score = 0.0
     baseline_test_score = 0.0
-    if len(config.seed_prompts) > 0:
+    if len(seed_prompts) > 0:
         for seed_prompt in config.seed_prompts:
             seed_prompt_train_score = evaluator(prompt=seed_prompt, validation_set=train_ds)
             seed_prompt_test_score = evaluator(prompt=seed_prompt, validation_set=test_ds)
@@ -303,6 +329,15 @@ def main():
         # Log the benchmark results
         benchmark_results = pd.DataFrame([{"optimizer": k, **v} for k, v in benchmark_results.items()])
         mlflow.log_table(benchmark_results, artifact_file="benchmark_results.json")
+
+
+def main():
+    """Run main process."""
+    # Load Configuration
+    config = parse_args()
+
+    # Run benchmark
+    run_benchmark(config=config)
 
 
 if __name__ == "__main__":

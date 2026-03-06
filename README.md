@@ -58,7 +58,7 @@ Leverages the [prompt-optimizer package](https://github.com/taagarwa-rh/prompt-o
 2. Create a ConfigMap with your configuration:
 
     ```sh
-    oc create configmap -n $NAMESPACE prompt-optimization-benchmark-config --from-file=config.yaml
+    oc create configmap -n $NAMESPACE prompt-optimization-benchmark-config --from-file=config.yaml=config.yaml
     ```
 
 3. Run the benchmark:
