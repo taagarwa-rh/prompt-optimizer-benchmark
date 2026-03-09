@@ -242,7 +242,7 @@ def run_benchmark(config: BenchmarkConfig):
     baseline_train_score = 0.0
     baseline_test_score = 0.0
     if len(seed_prompts) > 0:
-        for seed_prompt in config.seed_prompts:
+        for seed_prompt in seed_prompts:
             seed_prompt_train_score = evaluator(prompt=seed_prompt, validation_set=train_ds)
             seed_prompt_test_score = evaluator(prompt=seed_prompt, validation_set=test_ds)
             seed_prompt.score = seed_prompt_train_score
@@ -260,9 +260,12 @@ def run_benchmark(config: BenchmarkConfig):
             # Create optimizer
             optimizer_kwargs: dict[str, Any] = cfg.kwargs
             if "seed_prompts" in inspect.signature(cfg.optimizer_cls).parameters:
-                optimizer_kwargs["seed_prompts"] = config.seed_prompts
+                optimizer_kwargs["seed_prompts"] = seed_prompts
             optimizer: BaseOptimizer = cfg.optimizer_cls(
-                client=optimizer_client, evaluator=evaluator, validation_set=train_ds, **optimizer_kwargs
+                client=optimizer_client,
+                evaluator=evaluator,
+                validation_set=train_ds,
+                **optimizer_kwargs,
             )
 
             logger.info(f"Starting Run: {cfg.name}")
